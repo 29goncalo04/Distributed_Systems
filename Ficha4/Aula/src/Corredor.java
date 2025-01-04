@@ -1,10 +1,11 @@
 public class Corredor implements Runnable{
     
-    private Barreira bar;
+    //private Barreira bar;
+    private Agreement agreement;
     private int numero;
 
-    public Corredor(Barreira b, int n) {
-        this.bar = b;
+    public Corredor(Agreement a, int n) {
+        this.agreement = a;
         this.numero = n;
     }
 
@@ -17,7 +18,7 @@ public class Corredor implements Runnable{
         catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        this.bar.cheguei();
-        System.out.println("Entrei na corrida! Sou o " + this.numero + ".");
+        System.out.println(this.agreement.propose(numero));
+        //System.out.println("Entrei na corrida! Sou o " + this.numero + ".");
     }
 }

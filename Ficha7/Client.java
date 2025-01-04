@@ -1,4 +1,8 @@
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
@@ -25,13 +29,20 @@ public class Client {
         Socket socket = new Socket("localhost", 12345);
 
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+        DataInputStream in2 = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+        DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
 
         String userInput;
-        while ((userInput = in.readLine()) != null) {
+        while (!(userInput = in.readLine()).equals("Exit")) {
             Contact newContact = parseLine(userInput);
-            System.out.println(newContact.toString());
+            newContact.serialize(out);
+            out.flush();
+            // System.out.println(newContact.toString());
+            System.out.println(ContactList.deserialize(in2));
         }
 
+        socket.shutdownOutput();
+        socket.shutdownInput();
         socket.close();
     }
 }

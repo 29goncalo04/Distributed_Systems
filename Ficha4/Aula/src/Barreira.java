@@ -1,45 +1,61 @@
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
+// public class Barreira {
+
+//     private int nthreads;
+//     private ReentrantLock lock = new ReentrantLock();
+//     private Condition cond = lock.newCondition();
+
+
+//     public Barreira(int n) {
+//         this.nthreads = n;
+//     }
+    
+
+//     public void await() {
+//         lock.lock();
+//         try {
+//             this.nthreads --;
+//             if (this.nthreads > 0) {
+//                 while (this.nthreads > 0) {
+//                     cond.await();                    
+//                 }
+//             }
+//             else {
+//                 cond.signalAll();
+//             }
+//         }
+//         catch (InterruptedException e) {
+//             throw new RuntimeException(e);
+//         }
+//         finally {
+//             lock.unlock();
+//         }
+//     }
+// }
+
+
 public class Barreira {
-
-    private int ncorredores;
-    private ReentrantLock lock = new ReentrantLock();
-    private Condition cond = lock.newCondition();
-
-
-    public Barreira(int n) {
-        this.ncorredores = n;
+    ReentrantLock lock = new ReentrantLock();
+    Condition condition = lock.newCondition();
+    int nThreads;
+    Barreira (int n) {
+        nThreads = n;
     }
-
-    public void cheguei() {
-        this.lock.lock();
-        try {
-            this.ncorredores = this.ncorredores-1;
-            if (this.ncorredores > 0) {
-                while (this.ncorredores > 0) {
-                    this.cond.await();                    
-                }
+    void await() {
+        lock.lock();
+        try{
+            nThreads--;
+            if(nThreads>0){
+                while(nThreads>0) condition.await();
             }
-            else {
-                this.cond.signalAll();
-            }
-        }
-        catch (InterruptedException e) {
+            else condition.signalAll();
+        } catch (Exception e){
             throw new RuntimeException(e);
         }
-        finally {
-            this.lock.unlock();
-        }
-    }
-
-    public int corredores() {
-        this.lock.lock();
-        try {
-            return this.ncorredores;
-        }
-        finally {
-            this.lock.unlock();
+        finally{
+            lock.unlock();
         }
     }
 }
