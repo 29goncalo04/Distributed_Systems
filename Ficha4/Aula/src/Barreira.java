@@ -35,26 +35,29 @@ import java.util.concurrent.locks.ReentrantLock;
 //     }
 // }
 
-
-public class Barreira {
+public class Barreira{
     ReentrantLock lock = new ReentrantLock();
     Condition condition = lock.newCondition();
     int nThreads;
-    Barreira (int n) {
-        nThreads = n;
+    int count = 0;
+    int uso = 0;
+    Barreira(int N){
+        nThreads = N;
     }
-    void await() {
+    public void await() throws InterruptedException{
         lock.lock();
         try{
-            nThreads--;
-            if(nThreads>0){
-                while(nThreads>0) condition.await();
+            int usoAtual = uso;
+            count++;
+            if(count == nThreads){
+                uso++;
+                count = 0;
+                condition.signalAll();
             }
-            else condition.signalAll();
-        } catch (Exception e){
-            throw new RuntimeException(e);
-        }
-        finally{
+            else{
+                while(usoAtual == uso) condition.await();
+            }
+        } finally{
             lock.unlock();
         }
     }
