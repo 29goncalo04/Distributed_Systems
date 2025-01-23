@@ -1,0 +1,168 @@
+import java.net.ServerSocket;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+import raids.complete.Raid;
+
+public class ManagerImpl implements Manager{
+    public static final int R = 10;
+    private Lock l = new ReentrantLock();
+    private Condition cond = l.newCondition();
+    private int running = 0;
+    private Queue<RaidImpl> raidsEspera = new ArrayDeque<>();
+    private RaidImpl current = new RaidImpl();
+    private int maxMin = 0;
+
+    public Raid join(String name, int minPlayers) throws InterruptedException{
+        l.lock();
+        try{
+            RaidImpl raid = current;
+            raid.lock.lock();
+            try{
+                raid.players.add(name);
+                raid.playing++;
+            } finally{
+                raid.lock.unlock();
+            }
+            maxMin = Math.max(maxMin, minPlayers);
+            if(maxMin == raid.players.playing){
+                current = new RaidImpl();
+                maxMin = 0;
+                if(running<R){
+                    running++;
+                    raid.start();
+                }
+                else{
+                    raidsEspera.add(raid);
+                }
+                cond.signalAll();
+            }
+            else{
+                while(raid==current) cond.await();
+            }
+            return raid;
+        } finally{
+            l.unlock();
+        }
+    }
+
+    void finished(){
+        l.lock();
+        try{
+            running--;
+            RaidImpl raid = raidsEspera.poll();
+            if(raid!=null){
+                if(running<R){
+                    running++;
+                    raid.start();
+                }
+                else{
+                    raidsEspera.add(raid);
+                }
+            }
+        } finally{
+            l.unlock();
+        }
+    }
+
+    private class RaidImpl implements Raid{
+        int playing = 0;
+        List<String> players = new ArrayList<>();
+        Lock lock = new ReentrantLock();
+        Condition cond = lock.newCondition();
+        boolean started = false;
+        public List<String> players(){
+            lock.lock();
+            try{
+                return players;
+            } finally{
+                lock.unlock();
+            }
+        }
+        void start(){
+            lock.lock();
+            try{
+                started = true;
+                cond.signalAll();
+            } finally{
+                lock.unlock();
+            }
+        }
+        public void waitStart() throws InterruptedException{
+            lock.lock();
+            try{
+                while(!started) cond.await();
+            } finally{
+                lock.unlock();
+            }
+        }
+        public void leave(){
+            lock.lock();
+            try{
+                playing--;
+                if(playing==0) finished();
+            } finally{
+                lock.unlock();
+            }
+        }
+    }
+}
+
+
+
+
+
+public class Server{
+    public static void main(String[] args){
+        try{
+            ServerSocket ss = new ServerSocket(12345);
+            ManagerImpl manager = new ManagerImpl();
+            while(true){
+                Socket socket = ss.accept();
+                Thread t = new Thread(new Worker(socket, manager));
+                t.start();
+            }
+        } catch(Exception e){}      
+    }
+}
+
+public class Worker implements Runnable{
+    Socket socket;
+    ManagerImpl manager = 0;
+    public Worker(Socket socket, ManagerImpl manager){
+        socket = socket;
+        manager = manager;
+    }
+    public void run(){
+        try{
+            DataInputStream in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+            DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+            String command;
+            Raid raid;
+            while(true){
+                try{
+                    command = in.readUTF();
+                    if(command.equals("join")){
+                        out.writeUTF("Insira o seu nome");
+                        out.flush();
+                        String name = in.readUTF();
+                        out.writeUTF("Insira minPlayers");
+                        out.flush();
+                        int minPlayers = in.readInt();
+                        raid = manager.join(name, minPlayers);
+                        raid.waitStart();
+                    }
+                    if(command.equals("leave")){
+                        raid.leave();
+                    }
+                } catch(Exception e){break;}
+            }
+            in.close();
+            out.close();
+            socket.close();
+        } catch(Exception e){}
+    }
+}
